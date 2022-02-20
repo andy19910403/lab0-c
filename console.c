@@ -275,6 +275,12 @@ static bool do_help(int argc, char *argv[])
     return true;
 }
 
+static bool do_hello(int argc, char *argv[])
+{
+    printf("hello\r\n");
+    return true;
+}
+
 static bool do_comment_cmd(int argc, char *argv[])
 {
     if (echo)
@@ -411,6 +417,7 @@ void init_cmd()
     ADD_COMMAND(source, " file           | Read commands from source file");
     ADD_COMMAND(log, " file           | Copy output to file");
     ADD_COMMAND(time, " cmd arg ...    | Time command execution");
+    ADD_COMMAND(hello, "                | hello will print out");
     add_cmd("#", do_comment_cmd, " ...            | Display comment");
     add_param("simulation", &simulation, "Start/Stop simulation mode", NULL);
     add_param("verbose", &verblevel, "Verbosity level", NULL);
