@@ -209,34 +209,45 @@ bool q_delete_mid(struct list_head *head)
  * Note: this function always be called after sorting, in other words,
  * list is guaranteed to be sorted in ascending order.
  */
-bool dup(struct list_head *head)
+bool dup(struct list_head *head, struct list_head *stay)
 {
-    if (!head->next) {
+    if (head->next == stay) {
         return false;
     } else {
         element_t *kn = container_of(head, element_t, list);
         element_t *kn_next = container_of(head->next, element_t, list);
-        if (strcmp(kn->value, kn_next->value)) {
+        if (!strcmp(kn->value, kn_next->value)) {
             return true;
         }
         return false;
     }
 }
-struct list_head *delete_dup(struct list_head *head)
+struct list_head *delete_dup(struct list_head *head, struct list_head *stay)
 {
-    printf("del\r\n");
-    if (!head) {
-        return NULL;
+    if (head == stay) {
+        return stay;
     }
-    if (dup(head)) {
-        while (dup(head)) {
-            struct list_head *node = head;
+    if (dup(head, stay)) {
+        while (dup(head, stay)) {
+            element_t *kn = container_of(head, element_t, list);
+            struct list_head *prev = head->prev;
+            head->prev = NULL;
             head = head->next;
-            free(node);
+            head->prev = prev;
+            free(kn->value);
+            free(kn);
         }
-        return delete_dup(head->next);
+        struct list_head *temp = delete_dup(head->next, stay);
+        temp->prev = head->prev;
+        element_t *kn = container_of(head, element_t, list);
+        free(kn->value);
+        free(kn);
+        return temp;
     }
-    return delete_dup(head->next);
+    struct list_head *next = delete_dup(head->next, stay);
+    head->next = next;
+    next->prev = head;
+    return head;
 }
 bool q_delete_dup(struct list_head *head)
 {
@@ -244,7 +255,7 @@ bool q_delete_dup(struct list_head *head)
     if (!head) {
         return false;
     }
-    delete_dup(head);
+    head->next = delete_dup(head->next, head);
     return true;
 }
 
@@ -253,6 +264,7 @@ bool q_delete_dup(struct list_head *head)
  */
 void q_swap(struct list_head *head)
 {
+
     // https://leetcode.com/problems/swap-nodes-in-pairs/
 }
 
