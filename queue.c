@@ -324,4 +324,83 @@ void q_reverse(struct list_head *head)
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
-void q_sort(struct list_head *head) {}
+struct list_head *half(struct list_head *head)
+{
+    struct list_head *fast = head->next;
+    struct list_head *slow = head->next;
+    while (fast != head && fast->next != head) {
+        fast = fast->next->next;
+        slow = slow->next;
+    }
+    struct list_head *temp = slow->next;
+    slow->next = head;
+    head->prev = slow;
+    temp->prev = fast;
+    fast->next = temp;
+    return temp;
+}
+struct list_head *merge(struct list_head *left, struct list_head *right)
+{
+    struct list_head *head = q_new();
+    struct list_head *stay = head;
+    struct list_head *left_stay = left;
+    struct list_head *right_stay = right;
+    int l_flag = 0, r_flag = 0;
+
+    while ((left_stay != left || l_flag == 0) &&
+           (right_stay != right || r_flag == 0)) {
+        l_flag = 1;
+        r_flag = 1;
+        struct list_head *ntemp;
+        element_t *l_element = container_of(left, element_t, list);
+        element_t *r_element = container_of(right, element_t, list);
+        if (l_element->value < r_element->value) {
+            ntemp = left->next;
+            ntemp->prev = left->prev;
+            left->prev->next = ntemp;
+            head->next = left;
+            left->prev = head;
+            left->next = head->prev;
+            head->prev->next = left;
+        } else {
+            ntemp = right->next;
+            ntemp->prev = right->prev;
+            right->prev->next = ntemp;
+            head->next = right;
+            right->prev = head;
+            right->next = head->prev;
+            head->prev->next = right;
+        }
+    }
+    if (left == stay) {
+        left->next = right;
+        stay->next->prev = right->prev;
+        right->prev = left;
+        right->prev->next = stay->next;
+    } else {
+        right->next = left;
+        stay->next->prev = left->prev;
+        left->prev = right;
+        left->prev->next = stay->next;
+    }
+    return stay->next;
+}
+struct list_head *m_sort(struct list_head *head)
+{
+    struct list_head *right = half(head);
+    m_sort(head);
+    m_sort(right);
+    head->next = merge(head, right);
+    return head;
+}
+void q_sort(struct list_head *head)
+{
+    if (!head || head->next == head) {
+        return;
+    }
+    struct list_head *sorted_q = m_sort(head->next);
+    head->next = sorted_q;
+    head->prev = sorted_q->prev;
+    sorted_q->prev = head;
+    sorted_q->prev->next = head;
+}
