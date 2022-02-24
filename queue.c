@@ -334,13 +334,20 @@ void half(struct list_head *head,
         fast = fast->next->next;
         slow = slow->next;
     }
+    printf("finished\r\n");
     struct list_head *right_node = slow->next;
+    struct list_head *rlast = head->prev;
+    element_t *l_element = container_of(rlast, element_t, list);
+    printf("head->prev=%s\r\n", l_element->value);
     (*right)->next = right_node;
+    printf("right next asigned\r\n");
+    (*right)->prev = rlast;
+    printf("right finished\r\n");
     right_node->prev = *right;
     slow->next = head;
-    (*right)->prev = head->prev;
+    printf("slow next\r\n");
+    rlast->next = *right;
     head->prev = slow;
-    (head->prev)->next = *right;
     *left = head;
 }
 struct list_head *merge(struct list_head *left, struct list_head *right)
@@ -372,7 +379,6 @@ struct list_head *merge(struct list_head *left, struct list_head *right)
             nprev->prev = head;
             (head->next)->prev = nprev;
             head->next = nprev;
-
         }
     }
     if (left == left_stay) {
@@ -388,10 +394,40 @@ struct list_head *merge(struct list_head *left, struct list_head *right)
     }
     return head;
 }
+void nf(struct list_head *head)
+{
+    printf("pf\r\n");
+    struct list_head *h_n = head->next;
+    while (h_n != head) {
+        element_t *l_element = container_of(h_n, element_t, list);
+        printf("%s->", l_element->value);
+        h_n = h_n->next;
+    }
+    printf("\r\n");
+}
+void pf(struct list_head *head)
+{
+    printf("pf\r\n");
+    struct list_head *h_n = head->prev;
+    while (h_n != head) {
+        element_t *l_element = container_of(h_n, element_t, list);
+        printf("%s->", l_element->value);
+        h_n = h_n->prev;
+    }
+    printf("\r\n");
+}
 struct list_head *m_sort(struct list_head *head)
 {
     struct list_head *left, *right;
+    if (!head || head->next == head) {
+        printf("return head\r\n");
+        return head;
+    }
+    printf("head\r\n");
     half(head, &left, &right);
+    printf("head fffff\r\n");
+    pf(right);
+    nf(left);
     m_sort(left);
     m_sort(right);
     head = merge(left, right);
@@ -400,6 +436,7 @@ struct list_head *m_sort(struct list_head *head)
 void q_sort(struct list_head *head)
 {
     if (!head || head->next == head) {
+        printf("return head\r\n");
         return;
     }
     m_sort(head);
