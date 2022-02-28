@@ -59,7 +59,7 @@ void linenoiseSetFreeHintsCallback(linenoiseFreeHintsCallback *);
 void linenoiseAddCompletion(linenoiseCompletions *, const char *);
 /* clang-format on */
 
-char *linenoise(const char *prompt);
+char *linenoise(const char *prompt, int tinyweb_fd, int *tinyweb_conn_fd);
 void linenoiseFree(void *ptr);
 int linenoiseHistoryAdd(const char *line);
 int linenoiseHistorySetMaxLen(int len);

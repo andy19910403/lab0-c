@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include "dudect/fixture.h"
 #include "list.h"
+#include "tinyweb.h"
 
 /* Our program needs to use regular malloc/free */
 #define INTERNAL 1
@@ -62,6 +63,11 @@ static list_head_meta_t l_meta;
 
 /* Number of elements in queue */
 static size_t lcnt = 0;
+
+/* tinyweb fd */
+int tinyweb_fd = 0;
+/* tinyweb connection fd */
+int tinyweb_conn_fd = 0;
 
 /* How many times can queue operations fail */
 static int fail_limit = BIG_LIST;
@@ -761,7 +767,16 @@ static bool do_show(int argc, char *argv[])
     }
     return show_queue(0);
 }
-
+static bool do_web(int argc, char *argv[])
+{
+    if (tinyweb_fd) {
+        report(3, "Warning: Already launched tinyweb server");
+    } else {
+        tinyweb_fd = tinyweb_main(argc, argv);
+        report(3, "Launched tinyweb server");
+    }
+    return true;
+}
 static void console_init()
 {
     ADD_COMMAND(new, "                | Create new queue");
@@ -795,6 +810,8 @@ static void console_init()
         dedup, "                | Delete all nodes that have duplicate string");
     ADD_COMMAND(swap,
                 "                | Swap every two adjacent nodes in queue");
+    ADD_COMMAND(web,
+                "            | create a tinyweb to listerner 9999 tcp port");
     add_param("length", &string_length, "Maximum length of displayed string",
               NULL);
     add_param("malloc", &fail_probability, "Malloc failure probability percent",
@@ -959,7 +976,7 @@ int main(int argc, char *argv[])
     add_quit_helper(queue_quit);
 
     bool ok = true;
-    ok = ok && run_console(infile_name);
+    ok = ok && run_console(infile_name, &tinyweb_fd, &tinyweb_conn_fd);
     ok = ok && finish_cmd();
 
     return ok ? 0 : 1;

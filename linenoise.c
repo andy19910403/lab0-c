@@ -114,6 +114,7 @@
 #include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
+#include "tinyweb.h"
 
 #define LINENOISE_DEFAULT_HISTORY_MAX_LEN 100
 #define LINENOISE_MAX_LINE 4096
@@ -854,7 +855,9 @@ static int linenoiseEdit(int stdin_fd,
                          int stdout_fd,
                          char *buf,
                          size_t buflen,
-                         const char *prompt)
+                         const char *prompt,
+                         int tinyweb_fd,
+                         int *tinyweb_conn_fd)
 {
     struct linenoiseState l;
 
@@ -886,11 +889,50 @@ static int linenoiseEdit(int stdin_fd,
         signed char c;
         int nread;
         char seq[3];
-
-        nread = read(l.ifd, &c, 1);
-        if (nread <= 0)
-            return l.len;
-
+        if (tinyweb_fd) {
+            fd_set set;
+            FD_ZERO(&set);
+            FD_SET(tinyweb_fd, &set);
+            FD_SET(stdin_fd, &set);
+            int rv = select(tinyweb_fd + 1, &set, NULL, NULL, NULL);
+            switch (rv) {
+            case -1:
+                perror("select"); /* an error occurred */
+                continue;
+            case 0:
+                printf("timeout occurred\n"); /* a timeout occurred */
+                continue;
+            default:
+                if (FD_ISSET(tinyweb_fd, &set)) {
+                    // web requested.
+                    *tinyweb_conn_fd = tinyweb_accept(tinyweb_fd);
+                    http_request req;
+                    parse_request(*tinyweb_conn_fd, &req);
+                    if (strlen(req.filename) >= buflen) {
+                        // request is too large!
+                        printf("web input too large to process\n");
+                        close(*tinyweb_conn_fd);
+                        continue;
+                    }
+                    printf("web input: %s", req.filename);
+                    strncpy(buf, req.filename, buflen);
+                    // replace / to ' ', simulate command line input
+                    char *replace = buf;
+                    while ((replace = strchr(replace, '/')) != NULL)
+                        *replace++ = ' ';
+                    return strlen(buf);
+                } else if (FD_ISSET(stdin_fd, &set)) {
+                    nread = read(l.ifd, &c, 1);
+                    if (nread <= 0)
+                        return l.len;
+                }
+                break;
+            }
+        } else {
+            nread = read(l.ifd, &c, 1);
+            if (nread <= 0)
+                return l.len;
+        }
         /* Only autocomplete when the callback is set. It returns < 0 when
          * there was an error reading from fd. Otherwise it will return the
          * character that should be handled next. */
@@ -903,7 +945,6 @@ static int linenoiseEdit(int stdin_fd,
             if (c == 0)
                 continue;
         }
-
         switch (c) {
         case ENTER: /* enter */
             history_len--;
@@ -1083,7 +1124,11 @@ void linenoisePrintKeyCodes(void)
 
 /* This function calls the line editing function linenoiseEdit() using
  * the STDIN file descriptor set in raw mode. */
-static int linenoiseRaw(char *buf, size_t buflen, const char *prompt)
+static int linenoiseRaw(char *buf,
+                        size_t buflen,
+                        const char *prompt,
+                        int tinyweb_fd,
+                        int *tinyweb_conn_fd)
 {
     int count;
 
@@ -1094,7 +1139,8 @@ static int linenoiseRaw(char *buf, size_t buflen, const char *prompt)
 
     if (enableRawMode(STDIN_FILENO) == -1)
         return -1;
-    count = linenoiseEdit(STDIN_FILENO, STDOUT_FILENO, buf, buflen, prompt);
+    count = linenoiseEdit(STDIN_FILENO, STDOUT_FILENO, buf, buflen, prompt,
+                          tinyweb_fd, tinyweb_conn_fd);
     disableRawMode(STDIN_FILENO);
     printf("\n");
     return count;
@@ -1144,7 +1190,7 @@ static char *linenoiseNoTTY(void)
  * for a blacklist of stupid terminals, and later either calls the line
  * editing function or uses dummy fgets() so that you will be able to type
  * something even in the most desperate of the conditions. */
-char *linenoise(const char *prompt)
+char *linenoise(const char *prompt, int tinyweb_fd, int *tinyweb_conn_fd)
 {
     char buf[LINENOISE_MAX_LINE];
     int count;
@@ -1167,7 +1213,8 @@ char *linenoise(const char *prompt)
         }
         return strdup(buf);
     } else {
-        count = linenoiseRaw(buf, LINENOISE_MAX_LINE, prompt);
+        count = linenoiseRaw(buf, LINENOISE_MAX_LINE, prompt, tinyweb_fd,
+                             tinyweb_conn_fd);
         if (count == -1)
             return NULL;
         return strdup(buf);
