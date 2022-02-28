@@ -113,7 +113,7 @@ bool q_insert_tail(struct list_head *head, char *s)
  * NOTE: "remove" is different from "delete"
  * The space used by the list element and the string should not be freed.
  * The only thing "remove" need to do is unlink it.
- *
+ *        printf("sp=%s kh->value=%s bufsize=%ld\r\n",sp,kh->value,bufsize);
  * REF:
  * https://english.stackexchange.com/questions/52508/difference-between-delete-and-remove
  */
@@ -328,116 +328,82 @@ void half(struct list_head *head,
           struct list_head **left,
           struct list_head **right)
 {
-    struct list_head *fast = head->next;
-    struct list_head *slow = head;
-    while (fast != head && fast->next != head) {
+    struct list_head *fast = head;
+    struct list_head *slow = NULL;
+    while (fast && fast->next) {
         fast = fast->next->next;
-        slow = slow->next;
+        slow = !slow ? head : slow->next;
     }
-    printf("finished\r\n");
-    struct list_head *right_node = slow->next;
+    *right = slow->next;
     struct list_head *rlast = head->prev;
-    element_t *l_element = container_of(rlast, element_t, list);
-    printf("head->prev=%s\r\n", l_element->value);
-    (*right)->next = right_node;
-    printf("right next asigned\r\n");
     (*right)->prev = rlast;
-    printf("right finished\r\n");
-    right_node->prev = *right;
-    slow->next = head;
-    printf("slow next\r\n");
-    rlast->next = *right;
+    slow->next = NULL;
     head->prev = slow;
     *left = head;
 }
 struct list_head *merge(struct list_head *left, struct list_head *right)
 {
-    struct list_head *head = q_new();
-    struct list_head *left_stay = left;
-    struct list_head *right_stay = right;
-    left = left->next;
-    right = right->next;
-    while (left_stay != left && right_stay != right) {
+    struct list_head thead;
+    struct list_head *phead = &thead;
+    while (left && right) {
         element_t *l_element = container_of(left, element_t, list);
         element_t *r_element = container_of(right, element_t, list);
         struct list_head *nprev;
-        if (l_element->value < r_element->value) {
+        if (strcmp(l_element->value, r_element->value) <= 0) {
             nprev = left;
             left = left->next;
-            (nprev->prev)->next = left;
-            (nprev->next)->prev = nprev->prev;
-            nprev->next = head->next;
-            nprev->prev = head;
-            (head->next)->prev = nprev;
-            head->next = nprev;
+            if (left) {
+                left->prev = nprev->prev;
+            }
+            nprev->next = NULL;
+            phead->next = nprev;
+            nprev->prev = phead;
+            phead = phead->next;
         } else {
             nprev = right;
-            left = right->next;
-            (nprev->prev)->next = right;
-            (nprev->next)->prev = nprev->prev;
-            nprev->next = head->next;
-            nprev->prev = head;
-            (head->next)->prev = nprev;
-            head->next = nprev;
+            right = right->next;
+            if (right) {
+                right->prev = nprev->prev;
+            }
+            nprev->next = NULL;
+            phead->next = nprev;
+            nprev->prev = phead;
+            phead = phead->next;
         }
     }
-    if (left == left_stay) {
-        (head->next)->prev = (right->prev)->prev;
-        (right->prev)->prev = head->next;
-        head->next = right;
-        right->prev = head;
+    if (left == NULL) {
+        phead->next = right;
+        (thead.next)->prev = right->prev;
+        right->prev = phead;
     } else {
-        (head->next)->prev = (left->prev)->prev;
-        (left->prev)->prev = head->next;
-        head->next = left;
-        left->prev = head;
+        phead->next = left;
+        (thead.next)->prev = left->prev;
+        left->prev = phead;
     }
-    return head;
+    return thead.next;
 }
-void nf(struct list_head *head)
-{
-    printf("pf\r\n");
-    struct list_head *h_n = head->next;
-    while (h_n != head) {
-        element_t *l_element = container_of(h_n, element_t, list);
-        printf("%s->", l_element->value);
-        h_n = h_n->next;
-    }
-    printf("\r\n");
-}
-void pf(struct list_head *head)
-{
-    printf("pf\r\n");
-    struct list_head *h_n = head->prev;
-    while (h_n != head) {
-        element_t *l_element = container_of(h_n, element_t, list);
-        printf("%s->", l_element->value);
-        h_n = h_n->prev;
-    }
-    printf("\r\n");
-}
+
 struct list_head *m_sort(struct list_head *head)
 {
-    struct list_head *left, *right;
-    if (!head || head->next == head) {
-        printf("return head\r\n");
+    if (!head || !head->next) {
         return head;
     }
-    printf("head\r\n");
+    struct list_head *left, *right;
     half(head, &left, &right);
-    printf("head fffff\r\n");
-    pf(right);
-    nf(left);
-    m_sort(left);
-    m_sort(right);
-    head = merge(left, right);
-    return head;
+    left = m_sort(left);
+    right = m_sort(right);
+    return merge(left, right);
 }
 void q_sort(struct list_head *head)
 {
     if (!head || head->next == head) {
-        printf("return head\r\n");
         return;
     }
-    m_sort(head);
+    head->next->prev = head->prev;
+    head->prev->next = NULL;
+    struct list_head *list = m_sort(head->next);
+    head->next = list;
+    head->prev = list->prev;
+    (list->prev)->next = head;
+    list->prev = head;
 }
