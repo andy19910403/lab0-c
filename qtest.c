@@ -687,7 +687,55 @@ static bool do_swap(int argc, char *argv[])
     show_queue(3);
     return !error_check();
 }
+static bool do_shuffle(int argc, char *argv[])
+{
+    if (argc != 1) {
+        report(1, "%s takes no arguments", argv[0]);
+        return false;
+    }
 
+    if (!l_meta.l)
+        report(3, "Warning: Try to access null queue");
+    error_check();
+    set_noallocate_mode(true);
+    if (exception_setup(true))
+        if (!l_meta.l || l_meta.l->next == l_meta.l) {
+            return false;
+        }
+    int max = q_size(l_meta.l);
+    int changed = 1;
+    struct list_head *now = l_meta.l->next, *tail = l_meta.l->prev, *temp;
+    while (max > 0) {
+        int rand_val = (rand() % max) + 1;
+        while (changed < rand_val) {
+            now = now->next;
+            changed++;
+        }
+        while (changed > rand_val) {
+            now = now->prev;
+            changed--;
+        }
+        if (now == tail) {
+            tail = tail->prev;
+        } else {
+            temp = now->next;
+            (now->prev)->next = now->next;
+            (now->next)->prev = now->prev;
+            now->prev = l_meta.l->prev;
+            l_meta.l->prev->next = now;
+            l_meta.l->prev = now;
+            now->next = l_meta.l;
+            now = temp;
+        }
+        max--;
+    }
+    exception_cancel();
+
+    set_noallocate_mode(false);
+
+    show_queue(3);
+    return !error_check();
+}
 static bool is_circular()
 {
     struct list_head *cur = l_meta.l->next;
@@ -810,6 +858,8 @@ static void console_init()
         dedup, "                | Delete all nodes that have duplicate string");
     ADD_COMMAND(swap,
                 "                | Swap every two adjacent nodes in queue");
+    ADD_COMMAND(shuffle,
+                "            | create a tinyweb to listerner 9999 tcp port");
     ADD_COMMAND(web,
                 "            | create a tinyweb to listerner 9999 tcp port");
     add_param("length", &string_length, "Maximum length of displayed string",
